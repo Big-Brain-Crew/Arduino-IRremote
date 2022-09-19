@@ -321,6 +321,8 @@ public:
     uint32_t lastDecodedCommand;
 
     uint8_t repeatCount;        // Used e.g. for Denon decode for autorepeat decoding.
+
+    uint8_t irNum;
 };
 
 extern uint_fast8_t sBiphaseDecodeRawbuffOffset; //

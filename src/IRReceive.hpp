@@ -39,27 +39,31 @@
 /**
  * The receiver instance
  */
-IRrecv IrReceiver;
+// IRrecv IrReceiver;
 
 /*
  * The control structure instance
  */
-struct irparams_struct irparams; // the irparams instance
+#define NUM_RECEIVERS 1
+int numUsedReceivers = 0;
+struct irparams_struct irparamsArray[NUM_RECEIVERS]; // the irparams instance
 
 /**
  * Instantiate the IRrecv class. Multiple instantiation is not supported.
  * @param IRReceivePin Arduino pin to use. No sanity check is made.
  */
-IRrecv::IRrecv() {
-    decodedIRData.rawDataPtr = &irparams; // for decodePulseDistanceData() etc.
-    setReceivePin(0);
-#if !defined(NO_LED_FEEDBACK_CODE)
-    setLEDFeedback(0, DO_NOT_ENABLE_LED_FEEDBACK);
-#endif
-}
+// IRrecv::IRrecv() {
+//     decodedIRData.rawDataPtr = &irparams; // for decodePulseDistanceData() etc.
+//     setReceivePin(0);
+// #if !defined(NO_LED_FEEDBACK_CODE)
+//     setLEDFeedback(0, DO_NOT_ENABLE_LED_FEEDBACK);
+// #endif
+// }
 
 IRrecv::IRrecv(uint_fast8_t aReceivePin) {
-    decodedIRData.rawDataPtr = &irparams; // for decodePulseDistanceData() etc.
+    uint8_t irNum = numUsedReceivers;
+    numUsedReceivers++;
+    decodedIRData.rawDataPtr = &(irparamsArray[irNum]); // for decodePulseDistanceData() etc.
     setReceivePin(aReceivePin);
 #if !defined(NO_LED_FEEDBACK_CODE)
     setLEDFeedback(0, DO_NOT_ENABLE_LED_FEEDBACK);
@@ -71,15 +75,15 @@ IRrecv::IRrecv(uint_fast8_t aReceivePin) {
  * @param aReceivePin Arduino pin to use, where a demodulating IR receiver is connected.
  * @param aFeedbackLEDPin if 0, then take board specific FEEDBACK_LED_ON() and FEEDBACK_LED_OFF() functions
  */
-IRrecv::IRrecv(uint_fast8_t aReceivePin, uint_fast8_t aFeedbackLEDPin) {
-    decodedIRData.rawDataPtr = &irparams; // for decodePulseDistanceData() etc.
-    setReceivePin(aReceivePin);
-#if !defined(NO_LED_FEEDBACK_CODE)
-    setLEDFeedback(aFeedbackLEDPin, DO_NOT_ENABLE_LED_FEEDBACK);
-#else
-    (void) aFeedbackLEDPin;
-#endif
-}
+// IRrecv::IRrecv(uint_fast8_t aReceivePin, uint_fast8_t aFeedbackLEDPin) {
+//     decodedIRData.rawDataPtr = &irparams; // for decodePulseDistanceData() etc.
+//     setReceivePin(aReceivePin);
+// #if !defined(NO_LED_FEEDBACK_CODE)
+//     setLEDFeedback(aFeedbackLEDPin, DO_NOT_ENABLE_LED_FEEDBACK);
+// #else
+//     (void) aFeedbackLEDPin;
+// #endif
+// }
 
 /**********************************************************************************************************************
  * Stream like API
@@ -104,7 +108,7 @@ void IRrecv::begin(uint_fast8_t aReceivePin, bool aEnableLEDFeedback, uint_fast8
     (void) aFeedbackLEDPin;
 #endif
     // Set pin mode once
-    pinModeFast(irparams.IRReceivePin, INPUT);
+    pinModeFast(irparamsArray[irNum].IRReceivePin, INPUT);
 
 #if defined(_IR_MEASURE_TIMING) && defined(_IR_TIMING_TEST_PIN)
     pinModeFast(_IR_TIMING_TEST_PIN, OUTPUT);
@@ -116,10 +120,10 @@ void IRrecv::begin(uint_fast8_t aReceivePin, bool aEnableLEDFeedback, uint_fast8
  * Sets / changes the receiver pin number
  */
 void IRrecv::setReceivePin(uint_fast8_t aReceivePinNumber) {
-    irparams.IRReceivePin = aReceivePinNumber;
+    irparamsArray[irNum].IRReceivePin = aReceivePinNumber;
 #if defined(__AVR__)
-    irparams.IRReceivePinMask = digitalPinToBitMask(aReceivePinNumber);
-    irparams.IRReceivePinPortInputRegister = portInputRegister(digitalPinToPort(aReceivePinNumber));
+    irparamsArray[irNum].IRReceivePinMask = digitalPinToBitMask(aReceivePinNumber);
+    irparamsArray[irNum].IRReceivePinPortInputRegister = portInputRegister(digitalPinToPort(aReceivePinNumber));
 #endif
 }
 
@@ -151,7 +155,7 @@ void IRrecv::enableIRIn() {
 void IRrecv::start(uint32_t aMicrosecondsToAddToGapCounter) {
     start();
     noInterrupts();
-    irparams.TickCounterForISR += aMicrosecondsToAddToGapCounter / MICROS_PER_TICK;
+    irparamsArray[irNum].TickCounterForISR += aMicrosecondsToAddToGapCounter / MICROS_PER_TICK;
     interrupts();
 }
 
@@ -188,7 +192,7 @@ void IRrecv::end() {
  * @return true if no reception is on-going.
  */
 bool IRrecv::isIdle() {
-    return (irparams.StateForISR == IR_REC_STATE_IDLE || irparams.StateForISR == IR_REC_STATE_STOP) ? true : false;
+    return (irparamsArray[irNum].StateForISR == IR_REC_STATE_IDLE || irparamsArray[irNum].StateForISR == IR_REC_STATE_STOP) ? true : false;
 }
 
 /**
@@ -197,8 +201,8 @@ bool IRrecv::isIdle() {
  */
 void IRrecv::resume() {
     // check allows to call resume at arbitrary places or more than once
-    if (irparams.StateForISR == IR_REC_STATE_STOP) {
-        irparams.StateForISR = IR_REC_STATE_IDLE;
+    if (irparamsArray[irNum].StateForISR == IR_REC_STATE_STOP) {
+        irparamsArray[irNum].StateForISR = IR_REC_STATE_IDLE;
     }
 #if defined(SEND_PWM_BY_TIMER)
 //    TIMER_ENABLE_RECEIVE_INTR;  // normally it is stopped by send()
@@ -211,10 +215,10 @@ void IRrecv::resume() {
  */
 void IRrecv::initDecodedIRData() {
 
-    if (irparams.OverflowFlag) {
+    if (irparamsArray[irNum].OverflowFlag) {
         // Copy overflow flag to decodedIRData.flags and reset it
-        irparams.OverflowFlag = false;
-        irparams.rawlen = 0; // otherwise we have OverflowFlag again at next ISR call
+        irparamsArray[irNum].OverflowFlag = false;
+        irparamsArray[irNum].rawlen = 0; // otherwise we have OverflowFlag again at next ISR call
         decodedIRData.flags = IRDATA_FLAGS_WAS_OVERFLOW;
         IR_DEBUG_PRINTLN(F("Overflow happened"));
 
@@ -237,14 +241,14 @@ void IRrecv::initDecodedIRData() {
  * Returns true if IR receiver data is available.
  */
 bool IRrecv::available() {
-    return (irparams.StateForISR == IR_REC_STATE_STOP);
+    return (irparamsArray[irNum].StateForISR == IR_REC_STATE_STOP);
 }
 
 /**
  * If IR receiver data is available, returns pointer to IrReceiver.decodedIRData, else NULL.
  */
 IRData* IRrecv::read() {
-    if (irparams.StateForISR != IR_REC_STATE_STOP) {
+    if (irparamsArray[irNum].StateForISR != IR_REC_STATE_STOP) {
         return NULL;
     }
     if (decode()) {
@@ -260,7 +264,10 @@ IRData* IRrecv::read() {
  * @return false if no IR receiver data available, true if data available. Results of decoding are stored in IrReceiver.decodedIRData.
  */
 bool IRrecv::decode() {
-    if (irparams.StateForISR != IR_REC_STATE_STOP) {
+    Serial.println(irNum);
+    if (irparamsArray[irNum].StateForISR != IR_REC_STATE_STOP) {
+        Serial.println("BROKEN");
+
         return false;
     }
 
@@ -270,10 +277,11 @@ bool IRrecv::decode() {
         /*
          * Set OverflowFlag flag and return true here, to let the loop call resume or print raw data.
          */
+         Serial.println("BORKEN 2");
         decodedIRData.protocol = UNKNOWN;
         return true;
     }
-
+    Serial.println("BORKEN 3");
 #if defined(DECODE_NEC)
     IR_TRACE_PRINTLN(F("Attempting NEC decode"));
     if (decodeNEC()) {
@@ -296,6 +304,7 @@ bool IRrecv::decode() {
 #endif
 
 #if defined(DECODE_SONY)
+
     IR_TRACE_PRINTLN(F("Attempting Sony decode"));
     if (decodeSony()) {
         return true;
@@ -1462,31 +1471,8 @@ const char* getProtocolString(decode_type_t aProtocol) {
 }
 #endif
 
-/**********************************************************************************************************************
- * Interrupt Service Routine - Called every 50 us
- *
- * Duration in ticks of 50 us of alternating SPACE, MARK are recorded in irparams.rawbuf array.
- * 'rawlen' counts the number of entries recorded so far.
- * First entry is the SPACE between transmissions.
- *
- * As soon as one SPACE entry gets longer than RECORD_GAP_TICKS, state switches to STOP (frame received). Timing of SPACE continues.
- * A call of resume() switches from STOP to IDLE.
- * As soon as first MARK arrives in IDLE, gap width is recorded and new logging starts.
- *
- * With digitalRead and Feedback LED
- * 15 pushs, 1 in, 1 eor before start of code = 2 us @16MHz + * 7.2 us computation time (6us idle time) + * pop + reti = 2.25 us @16MHz => 10.3 to 11.5 us @16MHz
- * With portInputRegister and mask and Feedback LED code commented
- * 9 pushs, 1 in, 1 eor before start of code = 1.25 us @16MHz + * 2.25 us computation time + * pop + reti = 1.5 us @16MHz => 5 us @16MHz
- * => Minimal CPU frequency is 4 MHz
- *
- **********************************************************************************************************************/
-//#define _IR_MEASURE_TIMING
-//#define _IR_TIMING_TEST_PIN 7 // do not forget to execute: "pinModeFast(_IR_TIMING_TEST_PIN, OUTPUT);" if activated by line above
-#if defined(TIMER_INTR_NAME)
-ISR (TIMER_INTR_NAME) // for ISR definitions
-#else
-ISR () // for functions definitions which are called by separate (board specific) ISR
-#endif
+
+void processOne(irparams_struct irparams)
 {
 #if defined(_IR_MEASURE_TIMING) && defined(_IR_TIMING_TEST_PIN)
     digitalWriteFast(_IR_TIMING_TEST_PIN, HIGH); // 2 clock cycles
@@ -1591,6 +1577,40 @@ ISR () // for functions definitions which are called by separate (board specific
 #endif
 }
 
+
+/**********************************************************************************************************************
+ * Interrupt Service Routine - Called every 50 us
+ *
+ * Duration in ticks of 50 us of alternating SPACE, MARK are recorded in irparams.rawbuf array.
+ * 'rawlen' counts the number of entries recorded so far.
+ * First entry is the SPACE between transmissions.
+ *
+ * As soon as one SPACE entry gets longer than RECORD_GAP_TICKS, state switches to STOP (frame received). Timing of SPACE continues.
+ * A call of resume() switches from STOP to IDLE.
+ * As soon as first MARK arrives in IDLE, gap width is recorded and new logging starts.
+ *
+ * With digitalRead and Feedback LED
+ * 15 pushs, 1 in, 1 eor before start of code = 2 us @16MHz + * 7.2 us computation time (6us idle time) + * pop + reti = 2.25 us @16MHz => 10.3 to 11.5 us @16MHz
+ * With portInputRegister and mask and Feedback LED code commented
+ * 9 pushs, 1 in, 1 eor before start of code = 1.25 us @16MHz + * 2.25 us computation time + * pop + reti = 1.5 us @16MHz => 5 us @16MHz
+ * => Minimal CPU frequency is 4 MHz
+ *
+ **********************************************************************************************************************/
+//#define _IR_MEASURE_TIMING
+//#define _IR_TIMING_TEST_PIN 7 // do not forget to execute: "pinModeFast(_IR_TIMING_TEST_PIN, OUTPUT);" if activated by line above
+#if defined(TIMER_INTR_NAME)
+ISR (TIMER_INTR_NAME) // for ISR definitions
+#else
+ISR () // for functions definitions which are called by separate (board specific) ISR
+#endif
+{
+    for(uint8_t i = 0; i < NUM_RECEIVERS; i++)
+    {
+        processOne(irparamsArray[i]);
+    }
+}
+
+
 /**********************************************************************************************************************
  * Function to bit reverse OLD MSB values of e.g. NEC.
  **********************************************************************************************************************/
@@ -1626,7 +1646,7 @@ uint32_t bitreverse32Bit(uint32_t aInput) {
 bool IRrecv::decode(decode_results *aResults) {
     static bool sDeprecationMessageSent = false;
 
-    if (irparams.StateForISR != IR_REC_STATE_STOP) {
+    if (irparamsArray[irNum].StateForISR != IR_REC_STATE_STOP) {
         return false;
     }
 
@@ -1639,15 +1659,15 @@ bool IRrecv::decode(decode_results *aResults) {
     }
 
 // copy for usage by legacy programs
-    aResults->rawbuf = irparams.rawbuf;
-    aResults->rawlen = irparams.rawlen;
-    if (irparams.OverflowFlag) {
+    aResults->rawbuf = irparamsArray[irNum].rawbuf;
+    aResults->rawlen = irparamsArray[irNum].rawlen;
+    if (irparamsArray[irNum].OverflowFlag) {
         // Copy overflow flag to decodedIRData.flags
-        irparams.OverflowFlag = false;
-        irparams.rawlen = 0; // otherwise we have OverflowFlag again at next ISR call
+        irparamsArray[irNum].OverflowFlag = false;
+        irparamsArray[irNum].rawlen = 0; // otherwise we have OverflowFlag again at next ISR call
         IR_DEBUG_PRINTLN(F("Overflow happened"));
     }
-    aResults->overflow = irparams.OverflowFlag;
+    aResults->overflow = irparamsArray[irNum].OverflowFlag;
     aResults->value = 0;
 
     decodedIRData.flags = IRDATA_FLAGS_IS_MSB_FIRST; // for print
