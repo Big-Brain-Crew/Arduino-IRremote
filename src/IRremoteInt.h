@@ -184,7 +184,7 @@ class IRrecv {
 public:
 
     IRrecv();
-    IRrecv(uint_fast8_t aReceivePin);
+    IRrecv(uint_fast8_t aReceivePin, int irval, bool test);
     IRrecv(uint_fast8_t aReceivePin, uint_fast8_t aFeedbackLEDPin);
     void setReceivePin(uint_fast8_t aReceivePinNumber);
 

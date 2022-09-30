@@ -41,7 +41,7 @@
 //#define DECODE_LG
 #define DECODE_NEC          // Includes Apple and Onkyo
 //#define DECODE_SAMSUNG
-//#define DECODE_SONY
+// #define DECODE_SONY
 //#define DECODE_RC5
 //#define DECODE_RC6
 
@@ -60,13 +60,28 @@
 #include "PinDefinitionsAndMore.h" // Define macros for input and output pin etc.
 #include <IRremote.hpp>
 
+IRrecv receiver(D2, 0, false);
+IRrecv receiver2(D1, 1, false);
+IRrecv receiver3(D3, 1, false);
+
+
 void setup() {
+    // Define Receiver
+    // pinMode(D2, INPUT);
+    // pinMode(D8, INPUT_PULLDOWN);
+
+
     Serial.begin(115200);
     // Just to know which program is running on my Arduino
     Serial.println(F("START " __FILE__ " from " __DATE__ "\r\nUsing library version " VERSION_IRREMOTE));
 
     // Start the receiver and if not 3. parameter specified, take LED_BUILTIN pin from the internal boards definition as default feedback LED
-    IrReceiver.begin(IR_RECEIVE_PIN, ENABLE_LED_FEEDBACK);
+    receiver.begin(D2, ENABLE_LED_FEEDBACK);
+
+    receiver2.begin(D1, ENABLE_LED_FEEDBACK);
+    receiver3.begin(D3, ENABLE_LED_FEEDBACK);
+
+    globalStart();
 
     Serial.print(F("Ready to receive IR signals of protocols: "));
     printActiveIRProtocols(&Serial);
@@ -82,15 +97,18 @@ void loop() {
      * address is in command is in IrReceiver.decodedIRData.address
      * and up to 32 bit raw data in IrReceiver.decodedIRData.decodedRawData
      */
-    if (IrReceiver.decode()) {
-
+    // Serial.println("test");
+    if (receiver.decode()) {
+        Serial.println("RECEIVER 1");
+        Serial.println("RAW_DATAPTR");
+        Serial.println((unsigned int) receiver.decodedIRData.rawDataPtr);
         // Print a short summary of received data
-        IrReceiver.printIRResultShort(&Serial);
-        IrReceiver.printIRSendUsage(&Serial);
-        if (IrReceiver.decodedIRData.protocol == UNKNOWN) {
+        receiver.printIRResultShort(&Serial);
+        receiver.printIRSendUsage(&Serial);
+        if (receiver.decodedIRData.protocol == UNKNOWN) {
             Serial.println(F("Received noise or an unknown (or not yet enabled) protocol"));
             // We have an unknown protocol here, print more info
-            IrReceiver.printIRResultRawFormatted(&Serial, true);
+            receiver.printIRResultRawFormatted(&Serial, true);
         }
         Serial.println();
 
@@ -98,14 +116,78 @@ void loop() {
          * !!!Important!!! Enable receiving of the next value,
          * since receiving has stopped after the end of the current received data packet.
          */
-        IrReceiver.resume(); // Enable receiving of the next value
+        receiver.resume(); // Enable receiving of the next value
 
         /*
          * Finally, check the received data and perform actions according to the received command
          */
-        if (IrReceiver.decodedIRData.command == 0x10) {
+        if (receiver.decodedIRData.command == 0x10) {
             // do something
-        } else if (IrReceiver.decodedIRData.command == 0x11) {
+        } else if (receiver.decodedIRData.command == 0x11) {
+            // do something else
+        }
+    }
+    if (receiver2.decode()) {
+
+        // Print a short summary of received data
+        Serial.println("RECEIVER 2");
+
+        Serial.println("RAW_DATAPTR");
+        Serial.println((unsigned int) receiver2.decodedIRData.rawDataPtr);
+
+        receiver2.printIRResultShort(&Serial);
+        receiver2.printIRSendUsage(&Serial);
+        if (receiver2.decodedIRData.protocol == UNKNOWN) {
+            Serial.println(F("Received noise or an unknown (or not yet enabled) protocol"));
+            // We have an unknown protocol here, print more info
+            receiver2.printIRResultRawFormatted(&Serial, true);
+        }
+        Serial.println();
+
+        /*
+         * !!!Important!!! Enable receiving of the next value,
+         * since receiving has stopped after the end of the current received data packet.
+         */
+        receiver2.resume(); // Enable receiving of the next value
+
+        /*
+         * Finally, check the received data and perform actions according to the received command
+         */
+        if (receiver2.decodedIRData.command == 0x10) {
+            // do something
+        } else if (receiver2.decodedIRData.command == 0x11) {
+            // do something else
+        }
+    }
+    if (receiver3.decode()) {
+
+        // Print a short summary of received data
+        Serial.println("RECEIVER 3");
+
+        Serial.println("RAW_DATAPTR");
+        Serial.println((unsigned int) receiver3.decodedIRData.rawDataPtr);
+
+        receiver3.printIRResultShort(&Serial);
+        receiver3.printIRSendUsage(&Serial);
+        if (receiver3.decodedIRData.protocol == UNKNOWN) {
+            Serial.println(F("Received noise or an unknown (or not yet enabled) protocol"));
+            // We have an unknown protocol here, print more info
+            receiver3.printIRResultRawFormatted(&Serial, true);
+        }
+        Serial.println();
+
+        /*
+         * !!!Important!!! Enable receiving of the next value,
+         * since receiving has stopped after the end of the current received data packet.
+         */
+        receiver3.resume(); // Enable receiving of the next value
+
+        /*
+         * Finally, check the received data and perform actions according to the received command
+         */
+        if (receiver3.decodedIRData.command == 0x10) {
+            // do something
+        } else if (receiver3.decodedIRData.command == 0x11) {
             // do something else
         }
     }

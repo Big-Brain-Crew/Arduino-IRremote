@@ -44,9 +44,16 @@
 /*
  * The control structure instance
  */
-#define NUM_RECEIVERS 1
+#define NUM_RECEIVERS 3
 int numUsedReceivers = 0;
+bool timerNotConfigured = true;
 struct irparams_struct irparamsArray[NUM_RECEIVERS]; // the irparams instance
+
+void globalStart()
+{
+    // Timer interrupt is enabled after state machine reset
+    TIMER_ENABLE_RECEIVE_INTR;
+}
 
 /**
  * Instantiate the IRrecv class. Multiple instantiation is not supported.
@@ -60,14 +67,17 @@ struct irparams_struct irparamsArray[NUM_RECEIVERS]; // the irparams instance
 // #endif
 // }
 
-IRrecv::IRrecv(uint_fast8_t aReceivePin) {
-    uint8_t irNum = numUsedReceivers;
-    numUsedReceivers++;
+IRrecv::IRrecv(uint_fast8_t aReceivePin, int irval, bool test) {
+    // uint8_t irNum = numUsedReceivers;
+    // numUsedReceivers++;
+    irNum = irval;
     decodedIRData.rawDataPtr = &(irparamsArray[irNum]); // for decodePulseDistanceData() etc.
+
+
     setReceivePin(aReceivePin);
-#if !defined(NO_LED_FEEDBACK_CODE)
-    setLEDFeedback(0, DO_NOT_ENABLE_LED_FEEDBACK);
-#endif
+// #if !defined(NO_LED_FEEDBACK_CODE)
+//     setLEDFeedback(0, DO_NOT_ENABLE_LED_FEEDBACK);
+// #endif
 }
 
 /**
@@ -116,6 +126,7 @@ void IRrecv::begin(uint_fast8_t aReceivePin, bool aEnableLEDFeedback, uint_fast8
     start();
 }
 
+
 /**
  * Sets / changes the receiver pin number
  */
@@ -133,13 +144,16 @@ void IRrecv::setReceivePin(uint_fast8_t aReceivePinNumber) {
 void IRrecv::start() {
 
     // Setup for cyclic 50 us interrupt
-    timerConfigForReceive(); // no interrupts enabled here!
+    if(timerNotConfigured)
+    {
+        timerConfigForReceive(); // no interrupts enabled here!
+        timerNotConfigured = false;
+    }
 
     // Initialize state machine state
     resume();
 
-    // Timer interrupt is enabled after state machine reset
-    TIMER_ENABLE_RECEIVE_INTR;
+
 }
 /**
  * Alias for start().
@@ -264,9 +278,7 @@ IRData* IRrecv::read() {
  * @return false if no IR receiver data available, true if data available. Results of decoding are stored in IrReceiver.decodedIRData.
  */
 bool IRrecv::decode() {
-    Serial.println(irNum);
     if (irparamsArray[irNum].StateForISR != IR_REC_STATE_STOP) {
-        Serial.println("BROKEN");
 
         return false;
     }
@@ -277,11 +289,9 @@ bool IRrecv::decode() {
         /*
          * Set OverflowFlag flag and return true here, to let the loop call resume or print raw data.
          */
-         Serial.println("BORKEN 2");
         decodedIRData.protocol = UNKNOWN;
         return true;
     }
-    Serial.println("BORKEN 3");
 #if defined(DECODE_NEC)
     IR_TRACE_PRINTLN(F("Attempting NEC decode"));
     if (decodeNEC()) {
@@ -1472,7 +1482,7 @@ const char* getProtocolString(decode_type_t aProtocol) {
 #endif
 
 
-void processOne(irparams_struct irparams)
+void processOne(irparams_struct& irparams)
 {
 #if defined(_IR_MEASURE_TIMING) && defined(_IR_TIMING_TEST_PIN)
     digitalWriteFast(_IR_TIMING_TEST_PIN, HIGH); // 2 clock cycles
@@ -1608,6 +1618,7 @@ ISR () // for functions definitions which are called by separate (board specific
     {
         processOne(irparamsArray[i]);
     }
+
 }
 
 
